@@ -152,6 +152,21 @@ def build(
     root.default.geom.friction = [1.0, 0.1, 0.1]
     root.default.geom.density = 200
 
+    # Visual tuning so offscreen renders in tutorials show the kit clearly.
+    root.visual.headlight.ambient = [0.4, 0.4, 0.4]
+    root.visual.headlight.diffuse = [0.8, 0.8, 0.8]
+    root.visual.headlight.specular = [0.1, 0.1, 0.1]
+    root.visual.map.znear = 0.02
+    root.visual.map.zfar = 20.0
+    root.visual.quality.shadowsize = 1024
+    try:
+        # Ensure an offscreen framebuffer large enough for notebook renders.
+        global_vis = root.visual.add("global")
+    except ValueError:
+        global_vis = getattr(root.visual, "global")
+    global_vis.offwidth = 1280
+    global_vis.offheight = 720
+
     stage = root.worldbody.add("body", name="stage", pos=[0, 0, 0])
     stage.add(
         "geom",
@@ -163,21 +178,51 @@ def build(
 
     kit = root.worldbody.add("body", name="drum_kit", pos=[0, 0, 0])
 
-    # Basic lighting and a default viewpoint so that renderers produce an
-    # immediately useful image (e.g., for automated regression videos).
+    # Lighting and cameras tuned for offscreen renders.
     kit.add(
         "light",
         name="key_light",
-        pos=[1.5, -1.0, 2.0],
-        dir=[-1.5, 1.0, -2.0],
-        diffuse=[1.0, 1.0, 1.0],
-        specular=[0.3, 0.3, 0.3],
+        pos=[1.5, -1.25, 2.2],
+        dir=[-1.25, 1.25, -2.2],
+        diffuse=[0.9, 0.9, 0.9],
+        specular=[0.2, 0.2, 0.2],
+    )
+    kit.add(
+        "light",
+        name="fill_light",
+        pos=[-2.0, 1.5, 2.0],
+        dir=[2.0, -1.5, -2.0],
+        diffuse=[0.6, 0.6, 0.6],
+        specular=[0.15, 0.15, 0.15],
+    )
+    kit.add(
+        "light",
+        name="rim_light",
+        pos=[0.0, 0.0, 3.0],
+        dir=[0.0, 0.0, -1.0],
+        diffuse=[0.4, 0.4, 0.4],
+        specular=[0.1, 0.1, 0.1],
     )
     kit.add(
         "camera",
         name="front",
-        pos=[2.0, 0.0, 1.2],
-        euler=[-20, 0, 180],
+        pos=[2.0, -0.4, 1.4],
+        euler=[-20, 0, 165],
+        fovy=45,
+    )
+    kit.add(
+        "camera",
+        name="side",
+        pos=[0.0, -2.2, 1.3],
+        euler=[-15, 0, 90],
+        fovy=50,
+    )
+    kit.add(
+        "camera",
+        name="overhead",
+        pos=[0.5, 0.0, 2.4],
+        euler=[-90, 0, 180],
+        fovy=55,
     )
 
     # Bass drum.
