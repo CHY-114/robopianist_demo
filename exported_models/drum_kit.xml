@@ -1,0 +1,86 @@
+<mujoco model="drum_kit">
+  <compiler autolimits="true" angle="radian"/>
+  <option timestep="0.002"/>
+  <default>
+    <default class="/">
+      <geom friction="1 0.10000000000000001 0.10000000000000001" density="200"/>
+    </default>
+  </default>
+  <worldbody>
+    <body name="stage" pos="0 0 0">
+      <geom name="stage_floor" class="/" type="plane" size="2 2 0.10000000000000001" rgba="0.14999999999999999 0.14999999999999999 0.14999999999999999 1"/>
+    </body>
+    <body name="drum_kit" pos="0 0 0">
+      <light name="key_light" class="/" pos="1.5 -1 2" dir="-1.5 1 -2" diffuse="1 1 1" specular="0.29999999999999999 0.29999999999999999 0.29999999999999999"/>
+      <camera name="front" class="/" fovy="45" pos="1.6000000000000001 -1.1000000000000001 1.1000000000000001" xyaxes="0.6163082616581107 0.7875050010075858 -0 -0.27756616637232134 0.21722569542181672 0.9358258494687357"/>
+      <body name="kick_body" pos="0.59999999999999998 0 0.29999999999999999">
+        <geom name="kick_shell" class="/" type="cylinder" size="0.29999999999999999 0.20000000000000001" rgba="0.20000000000000001 0.20000000000000001 0.20000000000000001 1" mass="8"/>
+        <geom name="kick_head" class="/" type="cylinder" size="0.29399999999999998 0.01" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" pos="0 0 0.20000000000000001"/>
+        <site name="kick_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.28499999999999998 0.0050000000000000001" pos="0 0 0.20000000000000001"/>
+      </body>
+      <body name="snare_body" pos="0.29999999999999999 -0.29999999999999999 0.59999999999999998">
+        <geom name="snare_shell" class="/" type="cylinder" size="0.14999999999999999 0.14999999999999999" rgba="0.20000000000000001 0.20000000000000001 0.20000000000000001 1" mass="3"/>
+        <geom name="snare_head" class="/" type="cylinder" size="0.14699999999999999 0.01" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" pos="0 0 0.14999999999999999"/>
+        <site name="snare_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.14249999999999999 0.0050000000000000001" pos="0 0 0.14999999999999999"/>
+      </body>
+      <body name="rack_tom_body" pos="0.34999999999999998 0.14999999999999999 0.69999999999999996">
+        <geom name="rack_tom_shell" class="/" type="cylinder" size="0.14000000000000001 0.14999999999999999" rgba="0.20000000000000001 0.20000000000000001 0.20000000000000001 1" mass="2.5"/>
+        <geom name="rack_tom_head" class="/" type="cylinder" size="0.13720000000000002 0.01" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" pos="0 0 0.14999999999999999"/>
+        <site name="rack_tom_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.13300000000000001 0.0050000000000000001" pos="0 0 0.14999999999999999"/>
+      </body>
+      <body name="floor_tom_body" pos="0.75 -0.20000000000000001 0.45000000000000001">
+        <geom name="floor_tom_shell" class="/" type="cylinder" size="0.20000000000000001 0.17499999999999999" rgba="0.20000000000000001 0.20000000000000001 0.20000000000000001 1" mass="3.5"/>
+        <geom name="floor_tom_head" class="/" type="cylinder" size="0.19600000000000001 0.01" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" pos="0 0 0.17499999999999999"/>
+        <site name="floor_tom_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.19 0.0050000000000000001" pos="0 0 0.17499999999999999"/>
+      </body>
+      <body name="crash_body" pos="0.20000000000000001 -0.90000000000000002 1">
+        <geom name="crash_stand" class="/" type="capsule" size="0.01 1" rgba="0.59999999999999998 0.59999999999999998 0.59999999999999998 1" friction="1 0.5 0.001" fromto="0 0 -1 0 0 0"/>
+        <geom name="crash_cymbal" class="/" type="cylinder" size="0.25 0.01" rgba="0.94999999999999996 0.80000000000000004 0.20000000000000001 1" pos="0 0 0.02"/>
+        <site name="crash_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.25 0.0050000000000000001" pos="0 0 0.02"/>
+      </body>
+      <body name="ride_body" pos="0.80000000000000004 0.59999999999999998 1">
+        <geom name="ride_stand" class="/" type="capsule" size="0.01 1" rgba="0.59999999999999998 0.59999999999999998 0.59999999999999998 1" friction="1 0.5 0.001" fromto="0 0 -1 0 0 0"/>
+        <geom name="ride_cymbal" class="/" type="cylinder" size="0.28000000000000003 0.01" rgba="0.94999999999999996 0.80000000000000004 0.20000000000000001 1" pos="0 0 0.02"/>
+        <site name="ride_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.28000000000000003 0.0050000000000000001" pos="0 0 0.02"/>
+      </body>
+      <body name="hi_hat_body" pos="0.10000000000000001 -0.5 1">
+        <geom name="hi_hat_stand" class="/" type="capsule" size="0.01 1" rgba="0.59999999999999998 0.59999999999999998 0.59999999999999998 1" fromto="0 0 -1 0 0 0"/>
+        <body name="hi_hat_upper" pos="0 0 0.80000000000000004">
+          <joint name="hi_hat_joint" class="/" type="slide" axis="0 0 1" limited="true" range="-0.050000000000000003 0.050000000000000003"/>
+          <geom name="hi_hat_top" class="/" type="cylinder" size="0.20000000000000001 0.0050000000000000001" rgba="0.94999999999999996 0.80000000000000004 0.20000000000000001 1"/>
+          <site name="hi_hat_strike_site" class="/" type="cylinder" rgba="1 0 0 0.5" size="0.20000000000000001 0.0050000000000000001"/>
+        </body>
+        <geom name="hi_hat_bottom" class="/" type="cylinder" size="0.20000000000000001 0.0050000000000000001" rgba="0.94999999999999996 0.80000000000000004 0.20000000000000001 1" pos="0 0 0.78000000000000003"/>
+      </body>
+    </body>
+    <body name="arm_mount" pos="-0.20000000000000001 -0.55000000000000004 0.34999999999999998">
+      <geom name="arm_post" class="/" type="capsule" size="0.059999999999999998" rgba="0.20000000000000001 0.20000000000000001 0.20000000000000001 1" fromto="0 0 -0.34999999999999998 0 0 0.050000000000000003"/>
+      <body name="shoulder_body" pos="0 0 0.050000000000000003">
+        <joint name="shoulder_yaw" class="/" type="hinge" axis="0 0 1" limited="true" range="-1.2 1.2" damping="3"/>
+        <geom name="shoulder_base" class="/" type="capsule" size="0.050000000000000003" rgba="0.29999999999999999 0.29999999999999999 0.34999999999999998 1" fromto="0 0 0 0 0 0.20000000000000001"/>
+        <body name="upper_arm" pos="0 0 0.20000000000000001">
+          <joint name="shoulder_pitch" class="/" type="hinge" axis="0 1 0" limited="true" range="-1.3999999999999999 1.2" damping="2"/>
+          <geom name="upper_arm_geom" class="/" type="capsule" size="0.040000000000000001" rgba="0.40000000000000002 0.40000000000000002 0.45000000000000001 1" fromto="0 0 0 0 0 0.45000000000000001"/>
+          <body name="forearm" pos="0 0 0.45000000000000001">
+            <joint name="elbow_pitch" class="/" type="hinge" axis="0 1 0" limited="true" range="-2 0.5" damping="1.5"/>
+            <geom name="forearm_geom" class="/" type="capsule" size="0.035000000000000003" rgba="0.5 0.5 0.55000000000000004 1" fromto="0 0 0 0 0 0.34999999999999998"/>
+            <body name="wrist" pos="0 0 0.34999999999999998">
+              <joint name="wrist_yaw" class="/" type="hinge" axis="0 0 1" limited="true" range="-1 1" damping="0.5"/>
+              <geom name="wrist_geom" class="/" type="capsule" size="0.025000000000000001" rgba="0.45000000000000001 0.45000000000000001 0.5 1" fromto="0 0 0 0 0 0.20000000000000001"/>
+              <body name="drum_stick" pos="0 0 0.20000000000000001">
+                <geom name="drum_stick_geom" class="/" type="capsule" size="0.01" rgba="0.80000000000000004 0.59999999999999998 0.29999999999999999 1" fromto="0 0 0 0.34999999999999998 0 0"/>
+                <site name="stick_tip" class="/" rgba="1 0 0 1" size="0.01" pos="0.34999999999999998 0 0"/>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="shoulder_yaw_actuator" class="/" ctrlrange="-1.2 1.2" joint="shoulder_yaw" kp="200"/>
+    <position name="shoulder_pitch_actuator" class="/" ctrlrange="-1.3999999999999999 1.2" joint="shoulder_pitch" kp="200"/>
+    <position name="elbow_pitch_actuator" class="/" ctrlrange="-2 0.5" joint="elbow_pitch" kp="200"/>
+    <position name="wrist_yaw_actuator" class="/" ctrlrange="-1 1" joint="wrist_yaw" kp="200"/>
+  </actuator>
+</mujoco>
