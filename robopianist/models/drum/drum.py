@@ -19,7 +19,6 @@ from typing import Sequence
 import numpy as np
 from dm_control import composer, mjcf
 from dm_control.composer.observation import observable
-from dm_control.mujoco.wrapper import core as mj_core
 from mujoco_utils import mjcf_utils, types
 
 from robopianist.models.drum import drum_constants as drum_consts
@@ -65,6 +64,7 @@ class Drum(composer.Entity):
         self._strike_sites = []
         self._component_geoms = []
         self._component_bodies = []
+        self._original_colors = []  # Store original colors for restoration.
 
         for component_name in drum_consts.DRUM_COMPONENTS:
             site_name = f"{component_name}_strike_site"
@@ -103,6 +103,8 @@ class Drum(composer.Entity):
                 raise ValueError(f"Geom not found for component: {component_name} (looking for {geom_name})")
 
             self._component_geoms.append(geom)
+            # Store original color from MJCF definition.
+            self._original_colors.append(tuple(geom.rgba) if geom.rgba is not None else None)
 
         self._strike_sites = tuple(self._strike_sites)
         self._component_geoms = tuple(self._component_geoms)
@@ -143,48 +145,39 @@ class Drum(composer.Entity):
     # Methods.
 
     def _update_strike_state(self, physics: mjcf.Physics) -> None:
-        """Updates the strike state by detecting high-velocity impacts on strike sites."""
+        """Updates the strike state by detecting high-velocity impacts on strike sites.
+
+        Uses velocity-based detection: monitors sudden changes in site velocity to detect impacts.
+        This works well for drum strikes where objects (like drumsticks or hands) hit the surface.
+        """
         # Get current velocities of all strike sites.
         current_velocities = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
 
         for i, site in enumerate(self._strike_sites):
-            site_bind = physics.bind(site)
-            site_id = site_bind.element_id
-            temp_vel = np.zeros(6, dtype=np.float64)
-            if hasattr(mj_core.mjlib, "mj_siteVelocity"):
-                mj_core.mjlib.mj_siteVelocity(
-                    physics.model.ptr, physics.data.ptr, site_id, temp_vel, 0
-                )
-            elif hasattr(mj_core.mjlib, "mj_objectVelocity"):
-                if hasattr(mj_core.mjlib, "mju_str2Type"):
-                    obj_type = mj_core.mjlib.mju_str2Type(b"site")
-                else:
-                    obj_type = 3  # Fallback to the known enum value for mjOBJ_SITE.
-                mj_core.mjlib.mj_objectVelocity(
-                    physics.model.ptr,
-                    physics.data.ptr,
-                    obj_type,
-                    site_id,
-                    temp_vel,
-                    0,
-                )
-            else:  # pragma: no cover - legacy MuJoCo builds.
-                temp_vel[:] = 0.0
-            current_velocities[i] = temp_vel[:3]
+            # Get site velocity in world frame.
+            site_xvelp = physics.named.data.site_xvelp[site.name]
+            current_velocities[i] = site_xvelp
 
-        # Detect strikes by checking if there's a sudden change in velocity
-        # (impact detection).
-        velocity_magnitudes = np.linalg.norm(current_velocities, axis=1)
+        # Detect strikes by checking for sudden velocity changes (impact detection).
+        # We use the change in velocity magnitude as the strike indicator.
         velocity_changes = np.linalg.norm(
             current_velocities - self._prev_site_velocities, axis=1
         )
 
-        # A strike is detected if the velocity change exceeds the threshold.
-        new_strikes = velocity_changes > drum_consts.STRIKE_VELOCITY_THRESHOLD
+        # Alternative method: also check if there's significant acceleration in Z direction
+        # (downward strikes are most common).
+        z_velocity_changes = np.abs(current_velocities[:, 2] - self._prev_site_velocities[:, 2])
+
+        # A strike is detected if either:
+        # 1. Total velocity change exceeds threshold, OR
+        # 2. Z-direction change is significant (for direct downward strikes)
+        new_strikes = (velocity_changes > drum_consts.STRIKE_VELOCITY_THRESHOLD) | \
+                      (z_velocity_changes > drum_consts.STRIKE_VELOCITY_THRESHOLD * 0.7)
 
         # Update activation: strikes turn on, naturally decay after one timestep.
         self._activation[:] = new_strikes
-        self._strike_velocities[:] = velocity_changes
+        # Use the maximum of total change and z-change for velocity measure.
+        self._strike_velocities[:] = np.maximum(velocity_changes, z_velocity_changes)
 
         self._prev_site_velocities[:] = current_velocities
 
@@ -195,10 +188,9 @@ class Drum(composer.Entity):
                 if self._activation[i]:
                     physics.bind(geom).rgba = drum_consts.ACTIVATION_COLOR
                 else:
-                    # Reset to default color (will use material color).
-                    # Get original color from MJCF definition.
-                    if geom.rgba is not None:
-                        physics.bind(geom).rgba = geom.rgba
+                    # Reset to original color stored during initialization.
+                    if self._original_colors[i] is not None:
+                        physics.bind(geom).rgba = self._original_colors[i]
 
     def apply_action(
         self,

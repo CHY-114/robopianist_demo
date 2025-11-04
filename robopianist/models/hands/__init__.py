@@ -14,5 +14,6 @@
 
 from robopianist.models.hands.base import Hand, HandSide
 from robopianist.models.hands.shadow_hand import ShadowHand
+from robopianist.models.hands.drumstick_hand import DrumstickHand
 
-__all__ = ["Hand", "HandSide", "ShadowHand"]
+__all__ = ["Hand", "HandSide", "ShadowHand", "DrumstickHand"]
