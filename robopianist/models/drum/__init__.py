@@ -5,4 +5,6 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - optional dependency.
     drum_mjcf = None
 
-__all__ = ["drum_mjcf"]
+from robopianist.models.drum.drum import Drum
+
+__all__ = ["drum_mjcf", "Drum"]
