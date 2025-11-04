@@ -42,7 +42,7 @@ DRUM_MIDI_NOTES = {
 
 # Strike detection threshold (in meters/second).
 # Minimum velocity required to trigger a drum strike.
-STRIKE_VELOCITY_THRESHOLD = 0.1
+STRIKE_VELOCITY_THRESHOLD = 0.02
 
 # Maximum velocity for normalizing strike velocity to MIDI velocity (0-127).
 MAX_STRIKE_VELOCITY = 5.0

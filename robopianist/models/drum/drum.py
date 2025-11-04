@@ -19,6 +19,7 @@ from typing import Sequence
 import numpy as np
 from dm_control import composer, mjcf
 from dm_control.composer.observation import observable
+from dm_control.mujoco.wrapper import core as mj_core
 from mujoco_utils import mjcf_utils, types
 
 from robopianist.models.drum import drum_constants as drum_consts
@@ -147,10 +148,29 @@ class Drum(composer.Entity):
         current_velocities = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
 
         for i, site in enumerate(self._strike_sites):
-            site_id = physics.bind(site).element_id
-            # Get site velocity in world frame.
-            site_xvelp = physics.named.data.site_xvelp[site.name]
-            current_velocities[i] = site_xvelp
+            site_bind = physics.bind(site)
+            site_id = site_bind.element_id
+            temp_vel = np.zeros(6, dtype=np.float64)
+            if hasattr(mj_core.mjlib, "mj_siteVelocity"):
+                mj_core.mjlib.mj_siteVelocity(
+                    physics.model.ptr, physics.data.ptr, site_id, temp_vel, 0
+                )
+            elif hasattr(mj_core.mjlib, "mj_objectVelocity"):
+                if hasattr(mj_core.mjlib, "mju_str2Type"):
+                    obj_type = mj_core.mjlib.mju_str2Type(b"site")
+                else:
+                    obj_type = 3  # Fallback to the known enum value for mjOBJ_SITE.
+                mj_core.mjlib.mj_objectVelocity(
+                    physics.model.ptr,
+                    physics.data.ptr,
+                    obj_type,
+                    site_id,
+                    temp_vel,
+                    0,
+                )
+            else:  # pragma: no cover - legacy MuJoCo builds.
+                temp_vel[:] = 0.0
+            current_velocities[i] = temp_vel[:3]
 
         # Detect strikes by checking if there's a sudden change in velocity
         # (impact detection).

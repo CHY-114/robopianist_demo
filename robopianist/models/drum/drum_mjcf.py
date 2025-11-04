@@ -251,7 +251,7 @@ def build(
                 pos=[0.95,  0.7, 1.15 - 0.2],
                 radius=0.254, thickness=0.006)
     # Hi-hat with optional actuator.
-    # _add_hi_hat(kit, pos=[0.1, -0.5, 1.0], add_actuators=add_actuators)
+    _add_hi_hat(kit, pos=[0.1, -0.5, 1.0], add_actuators=add_actuators)
 
     if extra_percussion:
         for name, pos, radius, height in extra_percussion:
