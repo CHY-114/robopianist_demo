@@ -26,7 +26,7 @@ python examples/demo_piano_drum_simple.py
 python examples/demo_piano_drum_simple.py --show_details
 
 # 捕获帧（保存为图片）
-python examples/demo_piano_drum_simple.py --capture_frames --output_dir ./frames
+PYTHONPATH=$(pwd) python examples/demo_piano_drum_simple.py --capture_frames --output_dir ./frames
 
 # 运行更多步数
 python examples/demo_piano_drum_simple.py --n_steps 600

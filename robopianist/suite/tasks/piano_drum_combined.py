@@ -210,7 +210,15 @@ class PianoDrumCombined(composer.Task):
         self, physics: mjcf.Physics, random_state: np.random.RandomState
     ) -> None:
         """Initialize episode."""
-        pass
+        self._piano.initialize_episode(physics, random_state)
+        self._drum.initialize_episode(physics, random_state)
+
+        # Reset hand joint positions and actuator controls to defaults.
+        physics.bind(self._piano_right_hand.actuators).ctrl[:] = 0.0
+        physics.bind(self._piano_left_hand.actuators).ctrl[:] = 0.0
+        physics.bind(self._drum_right_hand.actuators).ctrl[:] = 0.0
+        physics.bind(self._drum_left_hand.actuators).ctrl[:] = 0.0
+        self._piano.apply_sustain(physics, 0.0, random_state)
 
     def before_step(
         self,

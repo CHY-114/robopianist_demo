@@ -207,7 +207,7 @@ class PianoDrumGymEnv(gym.Env):
     def render(self):
         """Render the environment."""
         if self.render_mode == "rgb_array":
-            return self._physics.render(camera_id=0, height=480, width=640)
+            return self._physics.render(camera_id='piano/back', height=480, width=640)
         elif self.render_mode == "human":
             # For human rendering, we'd need to use the viewer
             # This is a placeholder

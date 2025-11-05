@@ -120,6 +120,8 @@ class Drum(composer.Entity):
         self._activation = np.zeros(drum_consts.NUM_COMPONENTS, dtype=bool)
         self._strike_velocities = np.zeros(drum_consts.NUM_COMPONENTS, dtype=np.float64)
         self._prev_site_velocities = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
+        self._prev_site_positions = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
+        self._prev_site_positions_initialized = False
 
     # Composer methods.
 
@@ -151,12 +153,22 @@ class Drum(composer.Entity):
         This works well for drum strikes where objects (like drumsticks or hands) hit the surface.
         """
         # Get current velocities of all strike sites.
+        current_positions = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
         current_velocities = np.zeros((drum_consts.NUM_COMPONENTS, 3), dtype=np.float64)
 
-        for i, site in enumerate(self._strike_sites):
-            # Get site velocity in world frame.
-            site_xvelp = physics.named.data.site_xvelp[site.name]
-            current_velocities[i] = site_xvelp
+        # Get site positions in world frame.
+        bound_sites = physics.bind(self._strike_sites)
+        current_positions[:] = bound_sites.xpos
+
+        if self._prev_site_positions_initialized:
+            # Approximate site linear velocity in world coordinates via finite differences.
+            dt = physics.timestep() if hasattr(physics, "timestep") else physics.model.opt.timestep
+            if dt <= 0:
+                dt = 1.0
+            current_velocities[:] = (current_positions - self._prev_site_positions) / dt
+        else:
+            # First frame: no velocity information yet.
+            self._prev_site_positions_initialized = True
 
         # Detect strikes by checking for sudden velocity changes (impact detection).
         # We use the change in velocity magnitude as the strike indicator.
@@ -179,6 +191,7 @@ class Drum(composer.Entity):
         # Use the maximum of total change and z-change for velocity measure.
         self._strike_velocities[:] = np.maximum(velocity_changes, z_velocity_changes)
 
+        self._prev_site_positions[:] = current_positions
         self._prev_site_velocities[:] = current_velocities
 
     def _update_component_color(self, physics: mjcf.Physics) -> None:

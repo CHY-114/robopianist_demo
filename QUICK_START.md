@@ -33,25 +33,24 @@ obs, reward, terminated, truncated, info = env.step(action)
 ## 📐 Action Space Structure
 
 ```python
-# Total: ~61 dimensions (depends on Shadow Hand config)
+# Total: ~53 dimensions (depends on Shadow Hand config)
 
 action = [
-    # Piano Right Hand (24 dims)
+    # Piano Right Hand (22 dims)
     *piano_right_hand_actuators,
 
-    # Piano Left Hand (24 dims)
+    # Piano Left Hand (22 dims)
     *piano_left_hand_actuators,
 
-    # Drum Right Stick (6 dims)
-    pos_x,  # [-0.8, 0.8] m
-    pos_y,  # [-0.5, 0.5] m
-    pos_z,  # [0.5, 1.5] m
-    rot_x,  # [-0.5, 0.5] rad
-    rot_y,  # [-0.5, 0.5] rad
-    rot_z,  # [-0.3, 0.5] rad
+    # Drum Right Stick (4 dims)
+    # Drum Right Stick (4 dims)
+    base_yaw,        # [-2π, 2π] rad
+    shoulder_pitch,  # ≈[-2.06, 2.09] rad
+    elbow_pitch,     # ≈[-0.19, 3.93] rad
+    wrist_yaw,       # [-π, π] rad
 
-    # Drum Left Stick (6 dims)
-    pos_x, pos_y, pos_z, rot_x, rot_y, rot_z,
+    # Drum Left Stick (4 dims)
+    base_yaw, shoulder_pitch, elbow_pitch, wrist_yaw,
 
     # Piano Sustain (1 dim)
     sustain,  # [0, 1]
@@ -72,16 +71,14 @@ piano_left = np.zeros(piano_hand_dim)
 
 # Right stick hits snare drum
 drum_right = np.array([
-    0.3,   # pos_x: right of center
-    -0.3,  # pos_y: forward
-    0.8,   # pos_z: above snare
-    0.0,   # rot_x
-    -0.2,  # rot_y: slight tilt
-    0.0,   # rot_z
+    -0.15,  # base yaw
+    -0.30,  # shoulder pitch
+    1.20,   # elbow pitch
+    0.10,   # wrist yaw
 ])
 
 # Left stick idle
-drum_left = np.zeros(6)
+drum_left = np.zeros(4)
 
 # No sustain
 sustain = 0.0

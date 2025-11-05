@@ -29,7 +29,7 @@ def T_from(R, t):
 def fk_tip(q: np.ndarray,
            base_pos: np.ndarray,
            cfg: Dict[str, float]) -> np.ndarray:
-    """q=[q1,q2,q3,q4], 轴序 Z-Y-Y-Z；返回 stick_tip 世界坐标 (3,)."""
+    """q=[q1,q2,q3,q4]，轴序 Z-Y-Y-Y；返回 stick_tip 世界坐标 (3,)."""
     d1 = cfg["d1"]
     L_upper = cfg["L_upper"]
     L_fore  = cfg["L_fore"]
@@ -48,11 +48,11 @@ def fk_tip(q: np.ndarray,
     # J3: pitch about Y, 再沿 +Z 走 L_fore
     T = T @ T_from(RotY(q[2]), np.zeros(3)) @ T_from(np.eye(3), np.array([0,0,L_fore]))
 
-    # J4: yaw about Z, 再沿 +Z 走 L_wrist
-    T = T @ T_from(RotZ(q[3]), np.zeros(3)) @ T_from(np.eye(3), np.array([0,0,L_wrist]))
+    # J4: pitch about Y（与腕段平行），再沿 +Z 走 L_wrist
+    T = T @ T_from(RotY(q[3]), np.zeros(3)) @ T_from(np.eye(3), np.array([0,0,L_wrist]))
 
-    # 鼓槌沿本地 +X 方向 stick_length
-    tip_h = T @ np.array([stick_length, 0, 0, 1.0])
+    # 鼓槌沿本地 +Z 方向 stick_length
+    tip_h = T @ np.array([0, 0, stick_length, 1.0])
     return tip_h[:3]
 
 # ---------- 数值雅可比（末端位置对关节）的有限差分 ----------
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     ride_pos = [0.95, 0.7, 1.15]
 
     arm_base = [1.2, 0.2, 0.35]
-    q_init = [-0.3, 0.4, 0.6, 0.0]          # Z-Y-Y-Z
+    q_init = [-0.3, 0.4, 0.6, 0.0]          # Z-Y-Y-Y
     T = 0.60                                 # 0.6 s 完成
 
     arm_cfg = dict(

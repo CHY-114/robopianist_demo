@@ -43,13 +43,14 @@ def _add_drum_shell(
         pos=[0, 0, height / 2.0],
         rgba=HEAD_COLOR,
     )
+    site_radius = radius * 0.05
     body.add(
         "site",
         name=f"{name}_strike_site",
-        type="cylinder",
-        size=[radius * 0.95, 0.005],
+        type="sphere",
+        size=[site_radius],
         pos=[0, 0, height / 2.0],
-        rgba=[1, 0, 0, 0.5],
+        rgba=[1, 0, 0, 0.6],
     )
 
 
@@ -106,7 +107,7 @@ def _add_hi_hat(
         rgba=HARDWARE_COLOR,
     )
 
-    upper = body.add("body", name="hi_hat_upper", pos=[0, 0, 0.8])
+    upper = body.add("body", name="hi_hat_upper", pos=[0, 0, 0.5])
     joint = upper.add(
         "joint", name="hi_hat_joint", type="slide", axis=[0, 0, 1], limited=True, range=[-0.05, 0.05]
     )
@@ -205,8 +206,8 @@ def build(
 
     # camera_pos = [2.5, -1.5, 2.0]
     # camera_target = [0.0, 0.5, 0.]
-    camera_pos = [2.5, -1.5, 0.67]
-    camera_target = [0.0, 0.5, 0.67]
+    camera_pos = [2.2, -1.6, 0.67]
+    camera_target = [0.0, 0.5, 0.67 ]
     kit.add(
         "camera",
         name="front",
@@ -215,35 +216,56 @@ def build(
         xyaxes=_compute_camera_xyaxes(camera_pos, camera_target),
     )
     # --- Drums (sizes closer to common real kits) ---
-    # Kick / Bass drum: 22" x 18"  -> 直径≈0.56m(半径≈0.28), 深度≈0.45
-    # 放地面上，给 2cm 离地余量：pos_z = height/2 + 0.02
-    _add_drum_shell(kit, "kick",
-                    pos=[0.60,  0.00, 0.355 + 0.02],
-                    radius=0.28, height=0.45, mass=9.0)
+    # Uniform small-shell arrangement: 左侧两个小鼓，右侧两个小鼓。
+    small_radius = 0.17
+    small_height = 0.18
+    small_mass = 3.2
+    small_top_height = 0.72
+    small_center_z = small_top_height - small_height / 2.0
 
-    # Snare: 14" x 6" -> 半径≈0.178, 深度≈0.16
-    # 鼓面高度（top）≈0.72m → pos_z = top - height/2 = 0.72 - 0.08 = 0.64
-    _add_drum_shell(kit, "snare",
-                    pos=[0.32 - 0.1, -0.25, 0.64],
-                    radius=0.178, height=0.16, mass=3.2)
+    small_center_z += 0.0  # 整体抬高一些，更好看
+    # 左侧：军鼓 + 架子鼓（前）
+    _add_drum_shell(
+        kit,
+        "snare",
+        pos=[0.32, -0.4, small_center_z + 0.05],
+        radius=small_radius,
+        height=small_height,
+        mass=small_mass,
+    )
+    _add_drum_shell(
+        kit,
+        "rack_tom",
+        pos=[0.8, -0.52, small_center_z ],
+        radius=small_radius,
+        height=small_height,
+        mass=small_mass,
+    )
 
-    # Rack tom: 12" x 8" -> 半径≈0.1525, 深度≈0.20
-    # 鼓面高度≈0.85m → pos_z = 0.85 - 0.10 = 0.75
-    _add_drum_shell(kit, "rack_tom",
-                    pos=[0.50 - 0.1,  0.10, 0.75],
-                    radius=0.1525, height=0.20, mass=2.8)
-
-    # Floor tom: 16" x 16" -> 半径≈0.203, 深度≈0.38
-    # 鼓面高度≈0.68m → pos_z = 0.68 - 0.19 = 0.49
-    _add_drum_shell(kit, "floor_tom",
-                    pos=[0.88,  0.35, 0.69],
-                    radius=0.203, height=0.18, mass=4.0)
+    # 右侧：底鼓 + 落地嗵鼓（都缩小为同尺寸）
+    _add_drum_shell(
+        kit,
+        "kick",
+        # pos=[0.52, 0.15, small_center_z],
+        pos=[1.05, -0.27, small_center_z],
+        radius=small_radius,
+        height=small_height,
+        mass=small_mass,
+    )
+    _add_drum_shell(
+        kit,
+        "floor_tom",
+        pos=[0.9, 0.2, small_center_z + 0.05],
+        radius=small_radius,
+        height=small_height,
+        mass=small_mass,
+    )
 
     # --- Cymbals ---
     # 说明：_add_cymbal 的 pos[2] 既是支架高度也是本体 z；它会把支架从 z=0 竖到该高度。
     # Crash: 18" -> 半径≈0.229，放左前上方，常见高度 ≈1.20m
     _add_cymbal(kit, "crash",
-                pos=[0.30, -0.70, 1.20 - 0.2],
+                pos=[0.10, -0.70, 1.20 - 0.2],
                 radius=0.229, thickness=0.005)
 
     # Ride: 20" -> 半径≈0.254，放右侧上方，高度 ≈1.15m
