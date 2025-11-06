@@ -8,19 +8,73 @@ rendered MP4 video showcasing the resulting performance.
 
 from __future__ import annotations
 
+import copy
 import os
+import subprocess
+import wave
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
+import fluidsynth
 import imageio.v2 as imageio
 import numpy as np
 from dm_control import mjcf
 
 import DLS_demo as dls
+from robopianist import SF2_PATH
 from robopianist.models.drum import drum
+from robopianist.music import constants as music_consts
+from robopianist.music import midi_message
+
+try:
+    import pretty_midi
+except ImportError:  # pragma: no cover - optional dependency.
+    pretty_midi = None
 
 # Ensure Mujoco runs headless when possible.
 os.environ.setdefault("MUJOCO_GL", "egl")
+
+MIDI_REFERENCE_PATH = Path(
+    "/Users/zhujinxuan/Documents/GitHub/Roboband/audio/dong_ci_da_ci_72bpm.mid"
+)
+DEFAULT_REFERENCE_BPM = 120.0
+DEFAULT_TARGET_DURATION = 15.0
+
+
+def load_reference_bpm_and_duration(
+    midi_path: Path,
+    default_bpm: float,
+    default_duration: float,
+) -> Tuple[float, float]:
+    """Return (bpm, duration) parsed from a MIDI file with graceful fallbacks."""
+    bpm = default_bpm
+    duration = default_duration
+
+    if pretty_midi is None:
+        print("pretty_midi 未安装，使用默认节拍设置。")
+        return bpm, duration
+
+    if not midi_path.exists():
+        print(f"参考 MIDI 文件 {midi_path} 不存在，使用默认节拍设置。")
+        return bpm, duration
+
+    try:
+        midi = pretty_midi.PrettyMIDI(str(midi_path))
+    except Exception as exc:  # pragma: no cover - best effort parsing.
+        print(f"解析参考 MIDI 失败（{exc}），使用默认节拍设置。")
+        return bpm, duration
+
+    change_times, tempi = midi.get_tempo_changes()
+    if tempi.size > 0:
+        bpm = float(tempi[0])
+    else:
+        estimated = midi.estimate_tempo()
+        if estimated > 0:
+            bpm = float(estimated)
+
+    duration = max(float(midi.get_end_time()), duration)
+    print(f"参考 MIDI BPM: {bpm:.2f}, 时长: {duration:.2f}s")
+    return bpm, duration
 
 
 def add_xarm7_style_striker(
@@ -244,6 +298,92 @@ def simulate_and_render(
     return frames
 
 
+def synthesize_drum_waveform(
+    midi_messages: Sequence[midi_message.MidiMessage],
+    sample_rate: int = music_consts.SAMPLING_RATE,
+) -> np.ndarray | None:
+    """Generate an audio waveform for drum MIDI events using FluidSynth."""
+    if not midi_messages:
+        return None
+
+    events = [copy.deepcopy(msg) for msg in midi_messages]
+    synth = fluidsynth.Synth(samplerate=float(sample_rate))
+    sfid = synth.sfload(str(SF2_PATH))
+    channel = 9  # General MIDI percussion channel.
+    synth.program_select(channel, sfid, 128, 0)
+
+    current_time = events[0].time
+    next_event_times = [event.time for event in events[1:]]
+    for event, end_time in zip(events[:-1], next_event_times):
+        event.time = end_time - event.time
+    events[-1].time = 1.0  # Pad one second of tail after the last event.
+
+    total_time = current_time + float(sum(event.time for event in events))
+    total_samples = max(int(np.ceil(sample_rate * total_time)), 1)
+    waveform = np.zeros(total_samples, dtype=np.float64)
+
+    for event in events:
+        start_index = int(sample_rate * current_time)
+        end_index = int(sample_rate * (current_time + event.time))
+        end_index = max(end_index, start_index + 1)
+
+        if isinstance(event, midi_message.NoteOn):
+            synth.noteon(channel, event.note, event.velocity)
+        elif isinstance(event, midi_message.NoteOff):
+            synth.noteoff(channel, event.note)
+        elif isinstance(event, midi_message.SustainOn):
+            synth.cc(channel, music_consts.SUSTAIN_PEDAL_CC_NUMBER, music_consts.MAX_CC_VALUE)
+        elif isinstance(event, midi_message.SustainOff):
+            synth.cc(channel, music_consts.SUSTAIN_PEDAL_CC_NUMBER, music_consts.MIN_CC_VALUE)
+        else:
+            raise ValueError(f"Unsupported MIDI event: {event}")
+
+        samples = synth.get_samples(end_index - start_index)[::2]
+        waveform[start_index:end_index] += samples
+        current_time += event.time
+
+    synth.delete()
+
+    max_abs = np.max(np.abs(waveform))
+    if max_abs > 0:
+        waveform = waveform / max_abs
+    return (waveform * np.iinfo(np.int16).max).astype(np.int16)
+
+
+def truncate_timeseries(
+    times: np.ndarray,
+    values: np.ndarray,
+    max_time: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Clamp the time/value arrays to a maximum horizon with linear interpolation."""
+    if times.size == 0 or times[-1] <= max_time:
+        return times, values
+
+    idx = int(np.searchsorted(times, max_time, side="right"))
+    idx = min(idx, times.size - 1)
+    truncated_times = list(times[:idx])
+    truncated_values = list(values[:idx])
+
+    if not truncated_times or not np.isclose(truncated_times[-1], max_time):
+        prev_index = idx - 1
+        prev_time = times[prev_index]
+        prev_value = values[prev_index]
+
+        if np.isclose(prev_time, max_time):
+            interp_value = prev_value
+        else:
+            next_index = min(idx, times.size - 1)
+            next_time = times[next_index]
+            next_value = values[next_index]
+            alpha = (max_time - prev_time) / max(next_time - prev_time, 1e-8)
+            interp_value = prev_value + alpha * (next_value - prev_value)
+
+        truncated_times.append(max_time)
+        truncated_values.append(interp_value)
+
+    return np.asarray(truncated_times, dtype=float), np.vstack(truncated_values)
+
+
 def build_dual_arm_drum() -> Tuple[drum.Drum, mjcf.Physics, Dict[str, Dict[str, object]]]:
     """Construct the drum entity, attach two manipulators, and return physics."""
     drum_entity = drum.Drum(add_actuators=False)
@@ -411,13 +551,31 @@ def build_arm_trajectory(
 
 def main() -> None:
     # Input configuration (can be edited or parameterized).
-    left_sequence =  [1,1,1,2,1,2,1,0,0,0,]
-    right_sequence = [4,4,4,3,0,0,3,4,4,0,]
-    time_duration = 0.2
-    dwell_time = 0.02
+    bpm, midi_duration = load_reference_bpm_and_duration(
+        MIDI_REFERENCE_PATH,
+        DEFAULT_REFERENCE_BPM,
+        DEFAULT_TARGET_DURATION,
+    )
+    bpm = max(bpm, DEFAULT_REFERENCE_BPM)
+    target_duration = DEFAULT_TARGET_DURATION
+    beat_duration = 60.0 / bpm
+    dwell_time = min(beat_duration * 0.1, beat_duration * 0.5)
+    time_duration = max(0.05, 0.5 * (beat_duration - dwell_time))
+    print(
+        f"Using BPM: {bpm:.2f} (quarter duration {beat_duration:.3f}s) "
+        f"-> time_to_target {time_duration:.3f}s, dwell {dwell_time:.3f}s"
+    )
 
-    if len(left_sequence) != len(right_sequence):
-        raise ValueError("Left and right sequences must share the same length.")
+    # 参考 MIDI 的动次打次：每拍按照底鼓-军鼓-落地嗵-军鼓排列。
+    left_pattern =  [1, 0, 2, 0]
+    right_pattern = [0, 3, 0, 3]
+
+    for value in left_pattern:
+        if value not in (0, 1, 2):
+            raise ValueError(f"Left arm pattern contains unsupported state id: {value}")
+    for value in right_pattern:
+        if value not in (0, 3, 4):
+            raise ValueError(f"Right arm pattern contains unsupported state id: {value}")
 
     drum_entity, physics, arms = build_dual_arm_drum()
 
@@ -431,14 +589,6 @@ def main() -> None:
         "right": {3: "snare", 4: "rack_tom"},
     }
 
-    # Validate sequences against the allowed state ids.
-    for value in left_sequence:
-        if value not in (0, 1, 2):
-            raise ValueError(f"Left arm sequence contains unsupported state id: {value}")
-    for value in right_sequence:
-        if value not in (0, 3, 4):
-            raise ValueError(f"Right arm sequence contains unsupported state id: {value}")
-
     state_cache = plan_state_cache(
         physics=physics,
         arms=arms,
@@ -446,6 +596,20 @@ def main() -> None:
         state_components=state_components,
         time_to_target=time_duration,
         dwell=dwell_time,
+    )
+
+    pattern_left_times, _ = build_arm_trajectory(left_pattern, "left", state_cache)
+    pattern_right_times, _ = build_arm_trajectory(right_pattern, "right", state_cache)
+    pattern_duration = max(pattern_left_times[-1], pattern_right_times[-1])
+    repeats = max(1, int(np.ceil(target_duration / pattern_duration)))
+    left_sequence = left_pattern * repeats
+    right_sequence = right_pattern * repeats
+
+    if len(left_sequence) != len(right_sequence):
+        raise ValueError("Left and right sequences must share the same length.")
+    print(
+        f"每拍总时长: {beat_duration:.3f}s (time_to_target={time_duration:.3f}, dwell={dwell_time:.3f}), "
+        f"重复次数: {repeats}"
     )
 
     left_times, left_values = build_arm_trajectory(left_sequence, "left", state_cache)
@@ -475,6 +639,18 @@ def main() -> None:
         right_times, right_values, keyframe_times
     )
 
+    keyframe_times, keyframe_values = truncate_timeseries(
+        keyframe_times,
+        keyframe_values,
+        target_duration,
+    )
+
+    total_duration = float(keyframe_times[-1])
+    print(
+        f"Planned drum sequence duration: {total_duration:.2f}s "
+        f"(target {target_duration:.2f}s, repeats {repeats})"
+    )
+
     # Set initial joint configurations before rolling out the sequence.
     for arm_name, joint_names in arm_joint_names.items():
         for joint_name, value in zip(joint_names, arm_initial_positions[arm_name]):
@@ -492,17 +668,65 @@ def main() -> None:
         random_state=rng,
         camera_id="front",
         fps=30,
-        hold_steps=60,
+        hold_steps=0,
         resolution=(480, 640),
     )
 
     video_dir = Path("videos")
     video_dir.mkdir(exist_ok=True)
-    video_path = video_dir / "dual_arm_drum_sequence.mp4"
-    imageio.mimsave(video_path, frames, fps=30, macro_block_size=None)
+    silent_video_path = video_dir / "dual_arm_drum_sequence_silent.mp4"
+    final_video_path = video_dir / "dual_arm_drum_sequence.mp4"
+    audio_path = video_dir / "dual_arm_drum_sequence.wav"
+    imageio.mimsave(silent_video_path, frames, fps=30, macro_block_size=None)
 
+    midi_messages = drum_entity.midi_module.get_all_midi_messages()
+    waveform = synthesize_drum_waveform(midi_messages)
+    if waveform is not None:
+        with wave.open(str(audio_path), "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(music_consts.SAMPLING_RATE)
+            wav_file.writeframes(waveform.tobytes())
+
+        ffmpeg_cmd = [
+            "ffmpeg",
+            "-nostdin",
+            "-y",
+            "-i",
+            str(silent_video_path),
+            "-i",
+            str(audio_path),
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-shortest",
+            str(final_video_path),
+        ]
+        try:
+            subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            silent_video_path.unlink(missing_ok=True)
+            audio_path.unlink(missing_ok=True)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            if final_video_path.exists():
+                final_video_path.unlink()
+            silent_video_path.rename(final_video_path)
+            audio_path.unlink(missing_ok=True)
+            print("ffmpeg 合成音频失败，已保存静音视频。")
+        else:
+            duration = len(frames) / 30.0
+            print(f"Saved video with audio to {final_video_path}")
+            print(f"Captured {len(frames)} frames at 30 FPS ({duration:.2f}s)")
+            return
+    else:
+        print("没有检测到 MIDI 事件或生成音频失败，将保存静音视频。")
+
+    if final_video_path.exists():
+        final_video_path.unlink()
+    silent_video_path.rename(final_video_path)
+    audio_path.unlink(missing_ok=True)
     duration = len(frames) / 30.0
-    print(f"Saved video to {video_path}")
+    print(f"Saved silent video to {final_video_path}")
     print(f"Captured {len(frames)} frames at 30 FPS ({duration:.2f}s)")
 
 

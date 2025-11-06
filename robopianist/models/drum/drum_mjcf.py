@@ -206,8 +206,8 @@ def build(
 
     # camera_pos = [2.5, -1.5, 2.0]
     # camera_target = [0.0, 0.5, 0.]
-    camera_pos = [2.2, -1.6, 0.67]
-    camera_target = [0.0, 0.5, 0.67 ]
+    camera_pos = [2.2, -1.6, 1.2]
+    camera_target = [0.0, 0.5, 0.75]
     kit.add(
         "camera",
         name="front",
