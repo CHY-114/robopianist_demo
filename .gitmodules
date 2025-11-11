@@ -4,4 +4,4 @@
 	branch = main
 [submodule "roboband"]
 	path = roboband
-	url = file:///Users/zhujinxuan/Documents/GitHub/Roboband
+	url = https://github.com/ppplusss/Roboband.git
