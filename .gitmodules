@@ -5,3 +5,6 @@
 [submodule "roboband"]
 	path = roboband
 	url = https://github.com/ppplusss/Roboband.git
+[submodule "text2midi"]
+	path = text2midi
+	url = https://github.com/CHY-114/text2midi.git
